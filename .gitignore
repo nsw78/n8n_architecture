@@ -1,0 +1,64 @@
+# Arquivos de configuração local
+# Nunca comite arquivos .env! Eles contêm segredos.
+.env
+.env.*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Logs de instaladores
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Relatórios de testes e cobertura
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Ambientes virtuais
+venv/
+env/
+.venv
+
+# Configurações de IDE
+.idea/
+.vscode/
+
+# Arquivos específicos de SO
+.DS_Store
+Thumbs.db
