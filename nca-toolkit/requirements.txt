@@ -1,0 +1,7 @@
+Flask
+python-dotenv
+minio
+requests
+flask-cors
+pandas
+pytest

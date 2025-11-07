@@ -1,0 +1,157 @@
+version: '3.8'
+
+# =====================================================
+# 🚀 STACK PRINCIPAL DE AUTOMAÇÃO
+# Serviços: n8n, MinIO, Baserow, Kokoro e NCA Toolkit
+# =====================================================
+
+services:
+  # ==========================================
+  # 🧠 n8n - Plataforma de automação e IA
+  # ==========================================
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    env_file:
+      - .env
+    environment:
+      # 🔐 Autenticação e criptografia
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+
+      # 🌍 Configurações gerais
+      - TZ=${TZ}
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+
+      # 🌐 URLs internas (opcional para webhooks)
+      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-http://localhost:${N8N_PORT:-5678}}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:${N8N_PORT:-5678}}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      - minio
+      - baserow
+
+  # ==========================================
+  # 🗄️ MinIO - Armazenamento de objetos (S3)
+  # ==========================================
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    env_file:
+      - .env
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_DOMAIN=${MINIO_DOMAIN:-localhost}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ==========================================
+  # 🧾 Baserow - Banco de dados visual (no-code)
+  # ==========================================
+  baserow:
+    image: baserow/baserow:latest
+    restart: unless-stopped
+    ports:
+      - "${BASEROW_PORT:-8000}:80" # Mapeia a porta externa para a porta 80 interna do Baserow
+    env_file:
+      - .env
+    environment:
+      - BASEROW_PUBLIC_URL=${BASEROW_PUBLIC_URL:-http://localhost:8000}
+      - TZ=${TZ}
+    volumes:
+      - baserow_data:/baserow/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -f http://localhost:80/api/_health/ || exit 1"] # Verifica a porta 80 interna
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G # Ajuste conforme necessário
+
+  # ==========================================
+  # 🔊 Kokoro TTS - IA de voz (Text-to-Speech)
+  # ==========================================
+  kokoro:
+    build:
+      context: ./kokoro
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${KOKORO_PORT:-5002}:5002"
+    env_file:
+      - .env
+    depends_on:
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # 🧰 NCA Toolkit - Ferramentas customizadas
+  # ==========================================
+  nca-toolkit:
+    build:
+      context: ./nca-toolkit
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${NCA_TOOLKIT_PORT:-8088}:8088"
+    env_file:
+      - .env
+    environment:
+      # Usar nomes de serviço internos do Docker Compose
+      - MINIO_ENDPOINT=http://minio:9000
+      - BASEROW_ENDPOINT=http://baserow:80 # Aponta para a porta 80 interna do Baserow
+      - KOKORO_ENDPOINT=http://kokoro:5002
+      - OLLAMA_API_URL=http://ollama:11434 # Adicionado para o Ollama
+      - NCA_TOOLKIT_KEY=${NCA_TOOLKIT_KEY}
+      - TZ=${TZ}
+    depends_on:
+      - minio
+      - baserow
+      - kokoro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+# ==========================================
+# 💾 Volumes persistentes
+# ==========================================
+volumes:
+  n8n_data:
+  minio_data:
+  baserow_data:
+
+# ==========================================
+# 🌐 Rede padrão (bridge interna)
+# ==========================================
+networks:
+  default:
+    driver: bridge
