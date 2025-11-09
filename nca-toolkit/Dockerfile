@@ -25,6 +25,10 @@ RUN useradd --create-home --shell /bin/bash nonroot
 # Copia as dependências Python instaladas do estágio builder
 COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 
+# Instala o ffmpeg, necessário para o moviepy
+USER root
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 # Copia o código da aplicação
 COPY src/ ./src/
 

@@ -1,5 +1,9 @@
 from flask import Flask, request, jsonify
 import logging
+import json
+import requests
+import tempfile
+from moviepy.editor import ImageClip, AudioFileClip, CompositeVideoClip
 from config import Config
 from services.ollama_client import OllamaClient
 from services.minio_client import MinioClient
@@ -11,28 +15,11 @@ app.config.from_object(Config)
 # Configuração básica de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Initialize clients
-ollama_client = OllamaClient(
-    api_url=app.config['OLLAMA_API_URL']
-)
-minio_client = MinioClient(
-    minio_url=app.config['MINIO_ENDPOINT'].replace('http://', ''), # MinIO client expects host:port
-    access_key=app.config['MINIO_ROOT_USER'],
-    secret_key=app.config['MINIO_ROOT_PASSWORD']
-)
-# O cliente Baserow será inicializado sob demanda, se as chaves estiverem presentes.
-baserow_client = None
-if app.config.get('BASEROW_API_KEY'):
-    baserow_client = BaserowClient(
-        base_url=app.config['BASEROW_ENDPOINT'],
-        api_key=app.config['BASEROW_API_KEY']
-    )
-
 @app.route('/', methods=['GET'])
 def index():
     return jsonify({
         "message": "nCA Toolkit is running.",
-        "endpoints": ["/health", "/insight", "/upload", "/log"]
+        "endpoints": ["/health", "/insight", "/upload", "/log", "/data/timeline", "/render"]
     }), 200
 
 @app.route('/health', methods=['GET'])
@@ -47,6 +34,9 @@ def insight():
         logging.warning("Insight request missing 'input' data.")
         return jsonify({"error": "Missing 'input' in request body"}), 400
     try:
+        # Inicialização Tardia do Cliente
+        ollama_client = OllamaClient(api_url=app.config.get('OLLAMA_API_URL'))
+        
         response = ollama_client.generate_response(data.get('input'))
         logging.info("Insight generated successfully.")
         return jsonify({"response": response}), 200
@@ -64,9 +54,14 @@ def upload():
         logging.warning("Upload request received empty filename.")
         return jsonify({"error": "No selected file"}), 400
     try:
-        # Use the filename as object_name, or generate a unique one
+        # Inicialização Tardia do Cliente
+        minio_client = MinioClient(
+            minio_url=app.config.get('MINIO_ENDPOINT', '').replace('http://', ''),
+            access_key=app.config.get('MINIO_ROOT_USER'),
+            secret_key=app.config.get('MINIO_ROOT_PASSWORD')
+        )
+
         object_name = file.filename
-        # MinIO client expects a file-like object, not a path
         result = minio_client.upload_file(bucket_name="nca-toolkit-uploads", file_object=file, object_name=object_name)
         logging.info(f"File '{object_name}' uploaded successfully to MinIO.")
         return jsonify(result), 201
@@ -78,12 +73,18 @@ def upload():
 def log():
     data = request.json
     table_id = app.config.get('BASEROW_TABLE_ID')
+    api_key = app.config.get('BASEROW_API_KEY')
 
-    if not baserow_client or not table_id:
-        logging.error("BASEROW_TABLE_ID is not configured for logging.")
+    if not api_key or not table_id:
+        logging.error("BASEROW_API_KEY or BASEROW_TABLE_ID is not configured for logging.")
         return jsonify({"error": "Baserow client or table ID is not configured on the server."}), 500
 
     try:
+        # Inicialização Tardia do Cliente
+        baserow_client = BaserowClient(
+            base_url=app.config.get('BASEROW_ENDPOINT'),
+            api_key=api_key
+        )
         baserow_client.log_entry(table_id, data)
         logging.info("Log entry created successfully in Baserow.")
         return jsonify({"message": "Log entry created successfully"}), 201
@@ -91,5 +92,84 @@ def log():
         logging.error(f"Error logging entry to Baserow: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/render', methods=['POST'])
+def render_video():
+    """
+    Endpoint para renderizar um vídeo a partir de uma imagem e um texto.
+    Espera um JSON com 'image_url' e 'text'.
+    """
+    data = request.json
+    if not data or 'image_url' not in data or 'text' not in data:
+        logging.warning("Render request missing 'image_url' or 'text'.")
+        return jsonify({"error": "Missing 'image_url' or 'text' in request body"}), 400
+
+    image_url = data['image_url']
+    text = data['text']
+    video_filename = f"video_{tempfile._get_candidate_names()}.mp4"
+
+    try:
+        # 1. Gerar áudio com Kokoro
+        logging.info("Requesting audio from Kokoro TTS...") 
+        kokoro_endpoint = app.config['KOKORO_ENDPOINT']
+        tts_response = requests.post(f"{kokoro_endpoint}/tts", json={"text": text})
+        tts_response.raise_for_status()
+        audio_content = tts_response.content
+
+        # 2. Baixar a imagem
+        logging.info(f"Downloading image from {image_url}...")
+        image_response = requests.get(image_url)
+        image_response.raise_for_status()
+        image_content = image_response.content
+
+        # 3. Criar vídeo com MoviePy
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as audio_file, \
+             tempfile.NamedTemporaryFile(delete=False, suffix=".png") as image_file, \
+             tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as video_file:
+            
+            audio_file.write(audio_content)
+            image_file.write(image_content)
+            
+            audio_clip = AudioFileClip(audio_file.name)
+            image_clip = ImageClip(image_file.name).set_duration(audio_clip.duration)
+            image_clip.fps = 24 # Define um framerate padrão
+
+            final_clip = image_clip.set_audio(audio_clip)
+            logging.info("Rendering video file...")
+            final_clip.write_videofile(video_file.name, codec='libx264', audio_codec='aac')
+
+            # 4. Fazer upload do vídeo para o MinIO
+            logging.info(f"Uploading video '{video_filename}' to MinIO...")
+            # Inicialização Tardia do Cliente
+            minio_client = MinioClient(
+                minio_url=app.config.get('MINIO_ENDPOINT', '').replace('http://', ''),
+                access_key=app.config.get('MINIO_ROOT_USER'),
+                secret_key=app.config.get('MINIO_ROOT_PASSWORD')
+            )
+
+            with open(video_file.name, 'rb') as f:
+                result = minio_client.upload_file(bucket_name="nca-toolkit-uploads", file_object=f, object_name=video_filename)
+
+        logging.info("Video rendered and uploaded successfully.")
+        return jsonify(result), 201
+
+    except Exception as e:
+        logging.error(f"Error during video rendering: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/data/timeline', methods=['GET'])
+def get_timeline_data():
+    try:
+        # O caminho é relativo à raiz do projeto Docker, não ao nca-toolkit
+        with open('/app/../data/a_luz_nas_trevas.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        logging.info("Timeline data loaded and returned successfully.")
+        return jsonify(data.get("timeline", [])), 200
+    except FileNotFoundError:
+        logging.error("Data file 'a_luz_nas_trevas.json' not found.")
+        return jsonify({"error": "Data file not found on server."}), 404
+    except Exception as e:
+        logging.error(f"Error reading data file: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=app.config['NCA_TOOLKIT_PORT'])
+    app.run(host='0.0.0.0', port=app.config.get('NCA_TOOLKIT_PORT', 8088))

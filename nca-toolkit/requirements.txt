@@ -5,3 +5,4 @@ requests
 flask-cors
 pandas
 pytest
+moviepy==1.0.3

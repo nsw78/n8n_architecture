@@ -2,7 +2,7 @@ version: '3.8'
 
 # =====================================================
 # 🚀 STACK PRINCIPAL DE AUTOMAÇÃO
-# Serviços: n8n, MinIO, Baserow, Kokoro e NCA Toolkit
+# Serviços: n8n, MinIO, Baserow, Kokoro, Ollama e NCA Toolkit
 # =====================================================
 
 services:
@@ -12,25 +12,21 @@ services:
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
+    user: "1000" # Garante que o contêiner execute com o usuário 'node' e tenha permissão no volume
     ports:
-      - "${N8N_PORT:-5678}:5678"
+      - "${N8N_PORT:-5680}:5678"
     env_file:
       - .env
     environment:
-      # 🔐 Autenticação e criptografia
       - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-
-      # 🌍 Configurações gerais
       - TZ=${TZ}
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
-
-      # 🌐 URLs internas (opcional para webhooks)
-      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-http://localhost:${N8N_PORT:-5678}}
-      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:${N8N_PORT:-5678}}
+      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-http://localhost:5680}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5680}
     volumes:
       - n8n_data:/home/node/.n8n
     healthcheck:
@@ -46,11 +42,11 @@ services:
   # 🗄️ MinIO - Armazenamento de objetos (S3)
   # ==========================================
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-01-31T20-20-33Z
     restart: unless-stopped
     ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${MINIO_PORT:-9005}:9000"
+      - "${MINIO_CONSOLE_PORT:-9006}:9001"
     env_file:
       - .env
     environment:
@@ -67,29 +63,52 @@ services:
       retries: 3
 
   # ==========================================
+  # 💾 Banco de dados PostgreSQL para o Baserow
+  # ==========================================
+  baserow-db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=baserow
+      - POSTGRES_USER=baserow
+      - POSTGRES_PASSWORD=baserow
+    volumes:
+      - baserow_db_data:/var/lib/postgresql/data
+
+  # ==========================================
   # 🧾 Baserow - Banco de dados visual (no-code)
   # ==========================================
   baserow:
     image: baserow/baserow:latest
     restart: unless-stopped
     ports:
-      - "${BASEROW_PORT:-8000}:80" # Mapeia a porta externa para a porta 80 interna do Baserow
+      - "${BASEROW_PORT:-8081}:80"
     env_file:
       - .env
     environment:
-      - BASEROW_PUBLIC_URL=${BASEROW_PUBLIC_URL:-http://localhost:8000}
+      - BASEROW_PUBLIC_URL=${BASEROW_PUBLIC_URL:-http://localhost:8081}
       - TZ=${TZ}
+      - DATABASE_HOST=baserow-db
+      - DATABASE_NAME=baserow
+      - DATABASE_USER=baserow
+      - DATABASE_PASSWORD=baserow
     volumes:
-      - baserow_data:/baserow/data
+      - baserow_app_data:/baserow/data
+    entrypoint: >
+      sh -c "chown -R 999:999 /baserow/data &&
+             chmod -R 775 /baserow/data &&
+             /baserow.sh start"
     healthcheck:
-      test: ["CMD", "bash", "-c", "curl -f http://localhost:80/api/_health/ || exit 1"] # Verifica a porta 80 interna
+      test: ["CMD", "bash", "-c", "curl -f http://localhost:80/api/_health/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
     deploy:
       resources:
         limits:
-          memory: 2G # Ajuste conforme necessário
+          memory: 2G
+    depends_on:
+      - baserow-db
 
   # ==========================================
   # 🔊 Kokoro TTS - IA de voz (Text-to-Speech)
@@ -124,22 +143,38 @@ services:
     env_file:
       - .env
     environment:
-      # Usar nomes de serviço internos do Docker Compose
       - MINIO_ENDPOINT=http://minio:9000
-      - BASEROW_ENDPOINT=http://baserow:80 # Aponta para a porta 80 interna do Baserow
+      - BASEROW_ENDPOINT=http://baserow:80
       - KOKORO_ENDPOINT=http://kokoro:5002
-      - OLLAMA_API_URL=http://ollama:11434 # Adicionado para o Ollama
+      - OLLAMA_API_URL=http://ollama:11434
       - NCA_TOOLKIT_KEY=${NCA_TOOLKIT_KEY}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - BASEROW_API_KEY=${BASEROW_API_KEY}
+      - BASEROW_TABLE_ID=${BASEROW_TABLE_ID}
+      - NCA_TOOLKIT_PORT=${NCA_TOOLKIT_PORT:-8088}
       - TZ=${TZ}
+    volumes:
+      - ./data:/app/data
     depends_on:
       - minio
       - baserow
       - kokoro
+      - ollama
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
       interval: 30s
       timeout: 10s
       retries: 5
+
+  # ==========================================
+  # 🧠 Ollama - Serviço de LLM
+  # ==========================================
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
 
 # ==========================================
 # 💾 Volumes persistentes
@@ -147,7 +182,9 @@ services:
 volumes:
   n8n_data:
   minio_data:
-  baserow_data:
+  baserow_db_data:  # Volume dedicado para o banco de dados do Baserow
+  baserow_app_data: # Volume dedicado para os arquivos da aplicação Baserow
+  ollama_data:
 
 # ==========================================
 # 🌐 Rede padrão (bridge interna)
