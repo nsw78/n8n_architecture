@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =====================================================
 # 🚀 STACK PRINCIPAL DE AUTOMAÇÃO
 # Serviços: n8n, MinIO, Baserow, Kokoro, Ollama e NCA Toolkit
@@ -26,7 +24,8 @@ services:
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
       - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-http://localhost:5680}
-      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5680}
+      # Força o uso do banco de dados SQLite interno, ignorando variáveis do .env
+      - DB_TYPE=sqlite
     volumes:
       - n8n_data:/home/node/.n8n
     healthcheck:
@@ -92,12 +91,14 @@ services:
       - DATABASE_NAME=baserow
       - DATABASE_USER=baserow
       - DATABASE_PASSWORD=baserow
+      # Força a desativação de qualquer configuração externa do Redis vinda do .env
+      - REDIS_HOST=
+      - REDIS_PORT=
+      - REDIS_USER=
+      - REDIS_PASSWORD=
+      - REDIS_URL=
     volumes:
       - baserow_app_data:/baserow/data
-    entrypoint: >
-      sh -c "chown -R 999:999 /baserow/data &&
-             chmod -R 775 /baserow/data &&
-             /baserow.sh start"
     healthcheck:
       test: ["CMD", "bash", "-c", "curl -f http://localhost:80/api/_health/ || exit 1"]
       interval: 30s
@@ -143,10 +144,10 @@ services:
     env_file:
       - .env
     environment:
-      - MINIO_ENDPOINT=http://minio:9000
-      - BASEROW_ENDPOINT=http://baserow:80
-      - KOKORO_ENDPOINT=http://kokoro:5002
-      - OLLAMA_API_URL=http://ollama:11434
+      - MINIO_ENDPOINT=http://minio:9000 # Adicionado http://
+      - BASEROW_ENDPOINT=http://baserow:80 # Baserow client espera a URL completa
+      - KOKORO_ENDPOINT=http://kokoro:5002 # Kokoro client espera a URL completa
+      - OLLAMA_API_URL=http://ollama:11434 # Ollama client espera a URL completa
       - NCA_TOOLKIT_KEY=${NCA_TOOLKIT_KEY}
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}

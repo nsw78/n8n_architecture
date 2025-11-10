@@ -1,8 +1,4 @@
-from dotenv import load_dotenv
 import os
-
-# Load environment variables from .env file
-load_dotenv()
 
 class Config:
     # General configuration
@@ -34,7 +30,7 @@ class Config:
 
     # NCA Toolkit configuration
     NCA_TOOLKIT_KEY = os.getenv("NCA_TOOLKIT_KEY", "nca-key-12345")
-    NCA_TOOLKIT_PORT = os.getenv("NCA_TOOLKIT_PORT", 8088)
+    NCA_TOOLKIT_PORT = int(os.getenv("NCA_TOOLKIT_PORT", 8088))
 
     # Ollama configuration
     OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://ollama:11434")
