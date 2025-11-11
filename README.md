@@ -1,23 +1,23 @@
 
 # Ambiente NCA — Stack de Automação e Inteligência Artificial
 
-O **Ambiente NCA** é uma stack modular e integrada para **automação de processos**, **integração de serviços** e **inteligência artificial**, orquestrada por meio de **Docker Compose**.  
-O ecossistema foi desenvolvido para fornecer uma base sólida e escalável de **pipelines inteligentes**, permitindo gerar, armazenar e catalogar conteúdo multimídia a partir de fluxos de dados dinâmicos.
-
-A arquitetura combina processamento assíncrono, geração de insights por LLMs locais, integração com serviços REST, armazenamento S3 e automação de workflows.
+O **Ambiente NCA** é uma stack completa e modular para **automação de processos inteligentes**, **integração de IA local**, **armazenamento de ativos multimídia** e **gerenciamento de dados estruturados**.  
+Projetado para uso profissional, o ambiente combina múltiplos serviços orquestrados por **Docker Compose**, criando uma infraestrutura totalmente integrada de processamento de dados e geração de conteúdo.
 
 ---
 
 ## 1. Arquitetura Geral
 
-| Serviço | Função | Descrição Técnica |
-|----------|--------|-------------------|
-| **n8n** | Orquestrador de Fluxos | Gerencia e executa workflows automatizados que disparam o pipeline de geração de conteúdo. |
-| **nCA Toolkit** | API Central | Aplicação em Flask que integra e coordena os serviços da stack (Ollama, Kokoro, MinIO e Baserow). É o ponto de entrada para o processamento e registro de dados. |
-| **Ollama** | Módulo de IA (LLM) | Responsável pela geração de texto e insights através de modelos de linguagem locais. |
-| **Kokoro TTS** | Conversor de Texto em Áudio | Transforma o texto gerado em locuções de alta qualidade (Text-to-Speech). |
-| **MinIO** | Armazenamento (S3-Compatible) | Serviço de armazenamento de objetos compatível com a API S3, utilizado para guardar os artefatos gerados. |
-| **Baserow** | Catálogo e Registro | Banco de dados no-code que mantém o histórico de logs, URLs e metadados do conteúdo processado. |
+| Serviço | Porta | Endereço | Função | Descrição |
+|----------|--------|-----------|---------|------------|
+| **🧠 nCA Toolkit (Flask API)** | 8088 | [http://localhost:8088](http://localhost:8088) | Núcleo da stack | API principal, responsável por coordenar os fluxos entre IA, TTS, Baserow e MinIO. |
+| **⚙️ n8n (Orquestrador)** | 5680 | [http://localhost:5680](http://localhost:5680) | Automação visual | Criação e execução de fluxos automatizados que disparam o pipeline de conteúdo. |
+| **🔊 Kokoro TTS** | 5002 | [http://localhost:5002](http://localhost:5002) | Conversão texto-voz | Gera locuções de alta qualidade a partir de textos processados pelo LLM. |
+| **🗄️ MinIO Console** | 9006 | [http://localhost:9006](http://localhost:9006) | Interface administrativa | Gerenciamento de objetos e buckets. |
+| **📦 MinIO API (S3)** | 9005 | [http://localhost:9005](http://localhost:9005) | Endpoint S3 | Integração via SDKs e armazenamento programático. |
+| **🧩 Baserow** | 8081 | [http://localhost:8081](http://localhost:8081) | Banco de dados visual | Registro e consulta de logs e metadados do pipeline. |
+| **🐘 PostgreSQL** | 5432 | interno | Banco de dados relacional | Base persistente utilizada pelo Baserow. |
+| **🤖 Ollama (LLM)** | 11434 | [http://localhost:11434](http://localhost:11434) | Módulo de IA | Modelo local de linguagem natural, responsável pela geração de texto e insights. |
 
 ---
 
@@ -26,36 +26,37 @@ A arquitetura combina processamento assíncrono, geração de insights por LLMs 
 ```
 
 ambiente-nca/
-├── baserow/                # Diretório do banco de dados Baserow
-├── data/                   # Arquivos de dados (ex: JSONs de conteúdo)
+├── baserow/                 # Banco de dados visual
+├── data/                    # Arquivos JSON e conteúdos processados
 │   └── a_luz_nas_trevas.json
-├── docker-compose.yml      # Orquestração dos serviços
-├── docs/                   # Documentação técnica detalhada
+├── docker-compose.yml       # Orquestração completa da stack
+├── docs/
 │   ├── detail.md
 │   └── workflow-pipeline.md
-├── kokoro/                 # Serviço de TTS
+├── kokoro/                  # Serviço TTS
 │   └── Dockerfile
-├── minio/                  # Serviço de armazenamento S3
-├── n8n/                    # Fluxos automatizados do orquestrador
-├── nca-toolkit/            # API Flask central e integrações
-│   ├── Dockerfile
-│   ├── README.md
-│   ├── requirements.txt
+├── minio/                   # Configuração e volumes do MinIO
+├── n8n/                     # Fluxos de automação
+├── nca-toolkit/             # API Flask central
 │   ├── src/
 │   │   ├── config.py
 │   │   ├── main.py
 │   │   ├── services/
+│   │   │   ├── ollama_client.py
 │   │   │   ├── baserow_client.py
 │   │   │   ├── minio_client.py
-│   │   │   └── ollama_client.py
+│   │   │   └── kokoro_client.py
 │   │   └── utils/
 │   │       └── logger.py
+│   ├── Dockerfile
+│   ├── requirements.txt
 │   └── tests/
 │       └── test_main.py
-├── scripts/                # Scripts auxiliares e automações
+├── postgres/                # Volume persistente do PostgreSQL
+├── scripts/
 │   ├── create_baserow_table.py
 │   └── setup.sh
-└── README.md               # Documentação principal
+└── README.md
 
 ```
 
@@ -63,36 +64,34 @@ ambiente-nca/
 
 ## 3. Fluxo de Processamento — Pipeline de Conteúdo Inteligente
 
-O pipeline principal do **Ambiente NCA** foi projetado para automatizar a criação de conteúdo inteligente, conectando os serviços de IA, voz, armazenamento e registro.  
-O fluxo ocorre da seguinte forma:
+O **Ambiente NCA** utiliza uma arquitetura de integração total entre os serviços.  
+O pipeline segue as seguintes etapas:
 
-1. **Disparo (n8n)**  
-   O processo inicia em um *workflow* do n8n, que envia uma requisição HTTP para o endpoint `/insight` do nCA Toolkit, contendo o prompt, parâmetros e contexto do conteúdo.
+1. **Disparo do Workflow (n8n)**  
+   Um fluxo do n8n envia um `POST` ao endpoint `/insight` do nCA Toolkit com o prompt e contexto.
 
-2. **Geração de Insight (nCA Toolkit + Ollama)**  
-   O nCA Toolkit recebe a solicitação e comunica-se com o serviço Ollama, que processa o prompt através do modelo de linguagem (LLM) configurado e retorna um texto gerado.
+2. **Geração de Texto (Ollama)**  
+   O nCA Toolkit envia o prompt ao Ollama, que processa localmente com o modelo LLM configurado (por exemplo, `llama3` ou `mistral`).
 
-3. **Conversão de Voz (Kokoro TTS)**  
-   O texto é enviado ao serviço Kokoro, que o converte em áudio de alta qualidade, retornando um arquivo `.wav` ou `.mp3`.
+3. **Conversão em Áudio (Kokoro TTS)**  
+   O texto resultante é enviado ao Kokoro, que o transforma em arquivo de áudio `.wav` ou `.mp3`.
 
 4. **Armazenamento (MinIO)**  
-   O áudio e demais artefatos (imagens, vídeos, metadados) são enviados para o MinIO, que atua como armazenamento S3 compatível, garantindo persistência e versionamento.
+   O áudio e demais arquivos (textos, imagens, vídeos) são armazenados no MinIO — compatível com a API S3.
 
-5. **Registro e Catálogo (Baserow)**  
-   Ao final, o nCA Toolkit registra no Baserow todas as informações do pipeline — como URLs dos arquivos, data, tipo de conteúdo e metadados técnicos.
+5. **Registro e Indexação (Baserow + PostgreSQL)**  
+   O nCA Toolkit registra todos os metadados e URLs no Baserow, que utiliza o PostgreSQL como backend persistente.
 
-6. **Retorno ao Orquestrador**  
-   O nCA Toolkit devolve ao n8n um objeto JSON consolidado com o resultado final do processamento, permitindo que o workflow continue (por exemplo, publicando o conteúdo gerado).
-
-### Exemplo Simplificado de Fluxo
+6. **Retorno ao Orquestrador (n8n)**  
+   O resultado final é devolvido em formato JSON, contendo os links de acesso aos arquivos no MinIO e os registros catalogados.
 
 ```
 
-[Usuário/Evento] → n8n → nCA Toolkit → Ollama → Kokoro → MinIO → Baserow → [Retorno Final]
+[Usuário/Evento] → n8n → nCA Toolkit → Ollama → Kokoro → MinIO → Baserow → PostgreSQL → [Retorno Final]
 
 ````
 
-Cada etapa é registrada e auditável, permitindo rastreabilidade total de dados e outputs.
+Essa arquitetura garante rastreabilidade, persistência e versionamento completo de cada item processado.
 
 ---
 
@@ -100,128 +99,149 @@ Cada etapa é registrada e auditável, permitindo rastreabilidade total de dados
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
+- Recomendado: CPU Intel i5+ e 16GB RAM
 
 ---
 
 ## 5. Instalação e Configuração
 
-### 5.1 Clonagem do Repositório
+### Clonagem
 
 ```bash
-git clone <url-do-seu-repositorio>
+git clone <url-do-repositorio>
 cd ambiente-nca
 ````
 
-### 5.2 Configuração das Variáveis de Ambiente
+### Configuração de Variáveis
 
 ```bash
 cp .env.example .env
 ```
 
-Edite o arquivo `.env` com os valores corretos para o seu ambiente.
+Edite as credenciais conforme o ambiente:
 
-| Variável                                          | Descrição                          |
-| ------------------------------------------------- | ---------------------------------- |
-| `BASEROW_API_KEY`                                 | Chave de autenticação do Baserow   |
-| `BASEROW_TABLE_ID`                                | ID da tabela de logs               |
-| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`         | Credenciais do MinIO               |
-| `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` | Credenciais de autenticação do n8n |
-
----
-
-### 5.3 Inicialização dos Serviços
-
-```bash
-docker-compose up -d --build
-```
-
-A inicialização completa pode levar alguns minutos, especialmente na configuração inicial do Baserow.
+| Variável                                          | Descrição                  |
+| ------------------------------------------------- | -------------------------- |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`         | Credenciais do MinIO       |
+| `BASEROW_API_KEY`                                 | Token de acesso ao Baserow |
+| `BASEROW_TABLE_ID`                                | ID da tabela de logs       |
+| `N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD` | Login do painel n8n        |
 
 ---
 
-## 6. Acesso aos Serviços
-
-| Serviço                     | Endereço                                         | Porta | Descrição                             |
-| --------------------------- | ------------------------------------------------ | ----- | ------------------------------------- |
-| **nCA Toolkit (API Flask)** | [http://localhost:8088](http://localhost:8088)   | 8088  | API central da stack                  |
-| **n8n (Orquestrador)**      | [http://localhost:5680](http://localhost:5680)   | 5680  | Automação visual e controle de fluxos |
-| **Kokoro TTS**              | [http://localhost:5002](http://localhost:5002)   | 5002  | Conversão texto-voz                   |
-| **MinIO Console**           | [http://localhost:9006](http://localhost:9006)   | 9006  | Interface administrativa              |
-| **MinIO API (S3)**          | [http://localhost:9005](http://localhost:9005)   | 9005  | Endpoint compatível com S3            |
-| **Baserow**                 | [http://localhost:8081](http://localhost:8081)   | 8081  | Banco no-code                         |
-| **Ollama (LLM)**            | [http://localhost:11434](http://localhost:11434) | 11434 | API de modelos locais                 |
-
----
-
-## 7. Endpoints Principais — nCA Toolkit
-
-| Método               | Endpoint                                          | Descrição |
-| -------------------- | ------------------------------------------------- | --------- |
-| `GET /`              | Retorna status e endpoints disponíveis            |           |
-| `GET /health`        | Health check do serviço                           |           |
-| `POST /insight`      | Envia prompt ao Ollama e retorna resposta textual |           |
-| `POST /upload`       | Upload de arquivos para o MinIO                   |           |
-| `POST /log`          | Registro de eventos no Baserow                    |           |
-| `POST /render`       | Gera vídeo ou áudio com base em texto e imagem    |           |
-| `GET /data/timeline` | Retorna dados do arquivo `a_luz_nas_trevas.json`  |           |
-
----
-
-## 8. Operações de Gerenciamento
-
-### Parar os containers
+## 6. Inicialização dos Serviços
 
 ```bash
-docker-compose down
+docker compose up -d --build
 ```
 
-### Limpar volumes (remoção completa de dados)
+Verifique os status de todos os containers:
 
 ```bash
-docker-compose down --volumes
+docker ps
 ```
 
-### Visualizar logs
+Esperado:
 
-```bash
-docker-compose logs -f
 ```
-
-Ou de um serviço específico:
-
-```bash
-docker-compose logs -f nca-toolkit
+n8n                healthy
+nca-toolkit        healthy
+kokoro             healthy
+minio              healthy
+baserow            healthy
+postgres           healthy
+ollama             healthy
 ```
 
 ---
 
-## 9. Diretrizes de Desenvolvimento
+## 7. Endpoints do nCA Toolkit
 
-* Cada serviço é modular e comunica-se via REST.
-* O log centralizado segue o padrão definido em `nca-toolkit/src/utils/logger.py`.
-* Novas integrações devem ser registradas no `docker-compose.yml`.
-* Testes unitários ficam em `nca-toolkit/tests/`.
-
----
-
-## 10. Contribuições
-
-Contribuições são bem-vindas.
-Envie *issues* para sugestões e relatórios de bug ou *pull requests* com melhorias de código e documentação.
+| Método               | Endpoint                                | Descrição |
+| -------------------- | --------------------------------------- | --------- |
+| `GET /`              | Retorna status e documentação básica    |           |
+| `GET /health`        | Verifica a saúde do serviço             |           |
+| `POST /insight`      | Gera texto via Ollama                   |           |
+| `POST /upload`       | Faz upload de arquivos para o MinIO     |           |
+| `POST /log`          | Registra dados no Baserow               |           |
+| `POST /render`       | Gera áudios ou vídeos baseados em texto |           |
+| `GET /data/timeline` | Retorna dataset processado em JSON      |           |
 
 ---
 
-## 11. Licença
+## 8. Acesso aos Serviços
+
+| Serviço                 | Endereço                                         | Porta |
+| ----------------------- | ------------------------------------------------ | ----- |
+| nCA Toolkit (API Flask) | [http://localhost:8088](http://localhost:8088)   | 8088  |
+| n8n                     | [http://localhost:5680](http://localhost:5680)   | 5680  |
+| Kokoro TTS              | [http://localhost:5002](http://localhost:5002)   | 5002  |
+| MinIO Console           | [http://localhost:9006](http://localhost:9006)   | 9006  |
+| MinIO API (S3)          | [http://localhost:9005](http://localhost:9005)   | 9005  |
+| Baserow                 | [http://localhost:8081](http://localhost:8081)   | 8081  |
+| Ollama (LLM)            | [http://localhost:11434](http://localhost:11434) | 11434 |
+
+---
+
+## 9. Operações Administrativas
+
+### Parar containers
+
+```bash
+docker compose down
+```
+
+### Reiniciar com limpeza total
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+### Logs em tempo real
+
+```bash
+docker compose logs -f
+```
+
+---
+
+## 10. Diagrama de Integração
+
+```mermaid
+graph TD
+    A[n8n] --> B[nCA Toolkit]
+    B --> C[Ollama (LLM)]
+    B --> D[Kokoro TTS]
+    B --> E[MinIO (S3 Storage)]
+    E --> F[Baserow]
+    F --> G[PostgreSQL]
+    G -->|Persistência| F
+    F -->|Retorno| B
+    B -->|Output JSON| A
+```
+
+---
+
+## 11. Diretrizes de Desenvolvimento
+
+* Cada serviço comunica-se via REST.
+* O log centralizado é padronizado no módulo `logger.py`.
+* Novos endpoints devem ser documentados no `README` e registrados no `docker-compose.yml`.
+* Testes automatizados em `nca-toolkit/tests/`.
+
+---
+
+## 12. Licença
 
 Distribuído sob a **Licença MIT**.
 Consulte o arquivo `LICENSE` para mais informações.
 
 ---
 
-## 12. Autor
+## 13. Autor
 
 **Nelson Walcow**
 Especialista em Cloud, SRE, DevOps e Arquitetura de Infraestrutura
 [LinkedIn](https://www.linkedin.com) • [GitHub](https://github.com/nsw78)
-
 

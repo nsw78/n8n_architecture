@@ -1,210 +1,190 @@
-# =====================================================
-# 🚀 STACK PRINCIPAL DE AUTOMAÇÃO (NCA TOOLKIT)
-# Serviços: n8n, MinIO, Baserow, Kokoro, Ollama e NCA Toolkit
-# =====================================================
 
+###############################
+# REDE PRINCIPAL DO PROJETO
+###############################
+networks:
+  nca_network:
+    driver: bridge
+
+###############################
+# DEFINIÇÃO DOS VOLUMES
+###############################
+volumes:
+  ambiente-nca_postgres_data:
+  ambiente-nca_minio_data:
+  ambiente-nca_baserow_data:
+  ambiente-nca_ollama_data:
+  ambiente-nca_kokoro_data:
+
+###############################
+# SERVIÇOS DO AMBIENTE NCA
+###############################
 services:
-  # ==========================================
-  # 💾 PostgreSQL - Banco de dados
-  # ==========================================
+
+  #########################################
+  # 1️⃣ POSTGRES - BANCO DE DADOS PRINCIPAL
+  #########################################
   postgres:
     image: postgres:15
-    container_name: ambiente-nca_postgres_1
-    restart: unless-stopped
+    container_name: ambiente-nca-postgres
+    restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: StrongPass@2025
-      POSTGRES_DB: main_db
+      POSTGRES_USER: nca_user
+      POSTGRES_PASSWORD: nca_pass
+      POSTGRES_DB: nca_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ambiente-nca_postgres_data:/var/lib/postgresql/data
+    # A porta do Postgres não precisa ser exposta, pois a comunicação é interna na rede Docker.
+    networks:
+      - nca_network
 
-  # ==========================================
-  # 🧠 n8n - Plataforma de automação e IA
-  # ==========================================
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: ambiente-nca_n8n_1
-    restart: unless-stopped
-    ports:
-      - "${N8N_PORT:-5680}:5678"
-    environment:
-      TZ: ${TZ:-America/Sao_Paulo}
-      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
-      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-StrongPass@2025}
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-defaultEncryptionKey}
-      N8N_HOST: 0.0.0.0
-      N8N_PORT: 5678
-      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5680}
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: main_db
-      DB_POSTGRESDB_USER: admin
-      DB_POSTGRESDB_PASSWORD: StrongPass@2025
-      GENERIC_TIMEZONE: ${TZ:-America/Sao_Paulo}
-    volumes:
-      - n8n_data:/home/node/.n8n
-    depends_on:
-      postgres:
-        condition: service_healthy
-      baserow:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:5678/healthz || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # ==========================================
-  # 🗄️ MinIO - Armazenamento de objetos S3
-  # ==========================================
+  #########################################
+  # 2️⃣ MINIO - ARMAZENAMENTO DE OBJETOS (S3)
+  #########################################
   minio:
     image: minio/minio:latest
-    container_name: ambiente-nca_minio_1
-    restart: unless-stopped
-    ports:
-      - "${MINIO_PORT:-9005}:9000"
-      - "${MINIO_CONSOLE_PORT:-9006}:9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-StrongPass@2025}
+    container_name: ambiente-nca-minio
+    restart: always
     command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
     volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:9000/minio/health/live || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - ambiente-nca_minio_data:/data
+    ports:
+      - "9005:9000"   # API S3 exposta na porta 9005 do host
+      - "9006:9001"   # Console Web exposto na porta 9006 do host
+    networks:
+      - nca_network
 
-  # ==========================================
-  # 🧾 Baserow - Banco de dados visual (no-code)
-  # ==========================================
+  #########################################
+  # 3️⃣ N8N - AUTOMAÇÃO E WORKFLOWS INTELIGENTES
+  #########################################
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ambiente-nca-n8n
+    restart: always
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=nca_db
+      - DB_POSTGRESDB_USER=nca_user
+      - DB_POSTGRESDB_PASSWORD=nca_pass
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+    ports:
+      - "5680:5678" # Mapeia a porta interna 5678 para a porta 5680 do host, evitando conflito.
+    depends_on:
+      - postgres
+    networks:
+      - nca_network
+
+  #########################################
+  # 4️⃣ NCA-TOOLKIT - SEU BACKEND / API FLASK
+  #########################################
+  nca-toolkit:
+    build:
+      context: ./nca-toolkit  # Aponta para a pasta correta
+      dockerfile: Dockerfile      # O nome do arquivo dentro do contexto
+    container_name: ambiente-nca-nca-toolkit
+    restart: always
+    environment:
+      # Conexões com os outros serviços
+      - MINIO_ENDPOINT=http://minio:9000
+      - BASEROW_ENDPOINT=http://baserow:80
+      - KOKORO_ENDPOINT=http://kokoro:5002
+      - OLLAMA_API_URL=http://ollama:11434
+      # Chaves e IDs (carregados do .env)
+      - BASEROW_API_KEY=${BASEROW_API_KEY}
+      - BASEROW_TABLE_ID=${BASEROW_TABLE_ID}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    ports:
+      - "8088:8088"
+    depends_on:
+      - postgres
+      - minio
+      - baserow
+      - ollama
+      - kokoro
+    networks:
+      - nca_network
+
+  #########################################
+  # 5️⃣ BASEROW - BANCO DE DADOS NO-CODE
+  #########################################
   baserow:
     image: baserow/baserow:latest
-    container_name: ambiente-nca_baserow_1
-    restart: unless-stopped
-    ports:
-      - "${BASEROW_PORT:-8081}:80"
+    container_name: ambiente-nca-baserow
+    restart: always
     environment:
-      BASEROW_PUBLIC_URL: ${BASEROW_PUBLIC_URL:-http://localhost:8081}
-      TZ: ${TZ:-America/Sao_Paulo}
-      DATABASE_HOST: postgres
-      DATABASE_NAME: main_db
-      DATABASE_USER: admin
-      DATABASE_PASSWORD: StrongPass@2025
+      - BASEROW_PUBLIC_URL=http://localhost:8081
+      - DATABASE_HOST=postgres
+      - DATABASE_NAME=nca_db
+      - DATABASE_USER=nca_user
+      - DATABASE_PASSWORD=nca_pass
+    ports:
+      - "8081:80"
     volumes:
-      - baserow_app_data:/baserow/data
+      - ambiente-nca_baserow_data:/baserow/data
     depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost/api/_health/ || exit 1"]
-      interval: 60s
-      timeout: 20s
-      retries: 10
+      - postgres
+    networks:
+      - nca_network
 
-  # ==========================================
-  # 🔊 Kokoro TTS - IA de voz (Text-to-Speech)
-  # ==========================================
+  #########################################
+  # 6️⃣ OLLAMA - SERVIÇO DE IA (LLM)
+  #########################################
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ambiente-nca-ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ambiente-nca_ollama_data:/root/.ollama
+    networks:
+      - nca_network
+
+  #########################################
+  # 7️⃣ KOKORO - SERVIÇO DE TEXT-TO-SPEECH
+  #########################################
   kokoro:
     build:
       context: ./kokoro
-      dockerfile: Dockerfile
-    container_name: ambiente-nca_kokoro_1
-    restart: unless-stopped
+    container_name: ambiente-nca-kokoro
+    restart: always
     ports:
-      - "${KOKORO_PORT:-5002}:5002"
-    env_file:
-      - .env
-    depends_on:
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:5002/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # ==========================================
-  # 🧰 NCA Toolkit - Ferramentas personalizadas
-  # ==========================================
-  nca-toolkit:
-    build:
-      context: ./nca-toolkit
-      dockerfile: Dockerfile
-    container_name: ambiente-nca_nca-toolkit_1
-    restart: unless-stopped
-    ports:
-      - "${NCA_TOOLKIT_PORT:-8088}:8088"
-    env_file:
-      - .env
-    environment:
-      TZ: ${TZ:-America/Sao_Paulo}
-      NCA_TOOLKIT_KEY: ${NCA_TOOLKIT_KEY:-default-key}
-      MINIO_ENDPOINT: http://minio:9000
-      BASEROW_ENDPOINT: http://baserow:80
-      KOKORO_ENDPOINT: http://kokoro:5002
-      OLLAMA_API_URL: http://ollama:11434
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-StrongPass@2025}
-      BASEROW_API_KEY: ${BASEROW_API_KEY:-default-api}
-      BASEROW_TABLE_ID: ${BASEROW_TABLE_ID:-1}
+      - "5002:5002"
     volumes:
-      - ./data:/app/data
-    depends_on:
-      baserow:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      kokoro:
-        condition: service_healthy
-      ollama:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:8088 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - ambiente-nca_kokoro_data:/app/models
+    networks:
+      - nca_network
 
-  # ==========================================
-  # 🧠 Ollama - Modelos de linguagem (LLM)
-  # ==========================================
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ambiente-nca_ollama_1
-    restart: unless-stopped
-    ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+  #########################################
+  # 8️⃣ BACKUP - BACKUP AUTOMÁTICO DIÁRIO
+  #########################################
+  backup:
+    image: alpine:latest
+    container_name: ambiente-nca-backup
+    restart: always
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          echo "Executando backup dos volumes...";
+          # BACKUP DO POSTGRES
+          tar czf /backup/postgres_backup_$$(date +%F_%H-%M-%S).tar.gz -C /data_postgres .;
+          # BACKUP DO MINIO
+          tar czf /backup/minio_backup_$$(date +%F_%H-%M-%S).tar.gz -C /data_minio .;
+          echo "Backup concluído. Aguardando 24h...";
+          sleep 86400;
+        done
     volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:11434/api/tags || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-# ==========================================
-# 💾 Volumes persistentes
-# ==========================================
-volumes:
-  n8n_data:
-  minio_data:
-  baserow_app_data:
-  postgres_data:
-  ollama_data:
-
-# ==========================================
-# 🌐 Rede padrão (bridge)
-# ==========================================
-networks:
-  default:
-    driver: bridge
+      - ambiente-nca_postgres_data:/data_postgres:ro
+      - ambiente-nca_minio_data:/data_minio:ro
+      - ./backup:/backup
+    networks:
+      - nca_network
