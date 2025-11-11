@@ -1,115 +1,116 @@
 # =====================================================
-# 🚀 STACK PRINCIPAL DE AUTOMAÇÃO
+# 🚀 STACK PRINCIPAL DE AUTOMAÇÃO (NCA TOOLKIT)
 # Serviços: n8n, MinIO, Baserow, Kokoro, Ollama e NCA Toolkit
 # =====================================================
 
 services:
   # ==========================================
+  # 💾 PostgreSQL - Banco de dados
+  # ==========================================
+  postgres:
+    image: postgres:15
+    container_name: ambiente-nca_postgres_1
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: StrongPass@2025
+      POSTGRES_DB: main_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
   # 🧠 n8n - Plataforma de automação e IA
   # ==========================================
   n8n:
     image: n8nio/n8n:latest
+    container_name: ambiente-nca_n8n_1
     restart: unless-stopped
-    user: "1000" # Garante que o contêiner execute com o usuário 'node' e tenha permissão no volume
     ports:
       - "${N8N_PORT:-5680}:5678"
-    env_file:
-      - .env
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
-      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      - TZ=${TZ}
-      - N8N_HOST=0.0.0.0
-      - N8N_PORT=5678
-      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-http://localhost:5680}
-      # Força o uso do banco de dados SQLite interno, ignorando variáveis do .env
-      - DB_TYPE=sqlite
+      TZ: ${TZ:-America/Sao_Paulo}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-StrongPass@2025}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-defaultEncryptionKey}
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5680}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: main_db
+      DB_POSTGRESDB_USER: admin
+      DB_POSTGRESDB_PASSWORD: StrongPass@2025
+      GENERIC_TIMEZONE: ${TZ:-America/Sao_Paulo}
     volumes:
       - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      baserow:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fs http://localhost:5678/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-    depends_on:
-      - minio
-      - baserow
 
   # ==========================================
-  # 🗄️ MinIO - Armazenamento de objetos (S3)
+  # 🗄️ MinIO - Armazenamento de objetos S3
   # ==========================================
   minio:
-    image: minio/minio:RELEASE.2024-01-31T20-20-33Z
+    image: minio/minio:latest
+    container_name: ambiente-nca_minio_1
     restart: unless-stopped
     ports:
       - "${MINIO_PORT:-9005}:9000"
       - "${MINIO_CONSOLE_PORT:-9006}:9001"
-    env_file:
-      - .env
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-      - MINIO_DOMAIN=${MINIO_DOMAIN:-localhost}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-StrongPass@2025}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "curl -fs http://localhost:9000/minio/health/live || exit 1"]
       interval: 30s
-      timeout: 20s
-      retries: 3
-
-  # ==========================================
-  # 💾 Banco de dados PostgreSQL para o Baserow
-  # ==========================================
-  baserow-db:
-    image: postgres:15
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=baserow
-      - POSTGRES_USER=baserow
-      - POSTGRES_PASSWORD=baserow
-    volumes:
-      - baserow_db_data:/var/lib/postgresql/data
+      timeout: 10s
+      retries: 5
 
   # ==========================================
   # 🧾 Baserow - Banco de dados visual (no-code)
   # ==========================================
   baserow:
     image: baserow/baserow:latest
+    container_name: ambiente-nca_baserow_1
     restart: unless-stopped
     ports:
       - "${BASEROW_PORT:-8081}:80"
-    env_file:
-      - .env
     environment:
-      - BASEROW_PUBLIC_URL=${BASEROW_PUBLIC_URL:-http://localhost:8081}
-      - TZ=${TZ}
-      - DATABASE_HOST=baserow-db
-      - DATABASE_NAME=baserow
-      - DATABASE_USER=baserow
-      - DATABASE_PASSWORD=baserow
-      # Força a desativação de qualquer configuração externa do Redis vinda do .env
-      - REDIS_HOST=
-      - REDIS_PORT=
-      - REDIS_USER=
-      - REDIS_PASSWORD=
-      - REDIS_URL=
+      BASEROW_PUBLIC_URL: ${BASEROW_PUBLIC_URL:-http://localhost:8081}
+      TZ: ${TZ:-America/Sao_Paulo}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: main_db
+      DATABASE_USER: admin
+      DATABASE_PASSWORD: StrongPass@2025
     volumes:
       - baserow_app_data:/baserow/data
-    healthcheck:
-      test: ["CMD", "bash", "-c", "curl -f http://localhost:80/api/_health/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 2G
     depends_on:
-      - baserow-db
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost/api/_health/ || exit 1"]
+      interval: 60s
+      timeout: 20s
+      retries: 10
 
   # ==========================================
   # 🔊 Kokoro TTS - IA de voz (Text-to-Speech)
@@ -118,64 +119,78 @@ services:
     build:
       context: ./kokoro
       dockerfile: Dockerfile
+    container_name: ambiente-nca_kokoro_1
     restart: unless-stopped
     ports:
       - "${KOKORO_PORT:-5002}:5002"
     env_file:
       - .env
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      test: ["CMD-SHELL", "curl -fs http://localhost:5002/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
 
   # ==========================================
-  # 🧰 NCA Toolkit - Ferramentas customizadas
+  # 🧰 NCA Toolkit - Ferramentas personalizadas
   # ==========================================
   nca-toolkit:
     build:
       context: ./nca-toolkit
       dockerfile: Dockerfile
+    container_name: ambiente-nca_nca-toolkit_1
     restart: unless-stopped
     ports:
       - "${NCA_TOOLKIT_PORT:-8088}:8088"
     env_file:
       - .env
     environment:
-      - MINIO_ENDPOINT=http://minio:9000 # Adicionado http://
-      - BASEROW_ENDPOINT=http://baserow:80 # Baserow client espera a URL completa
-      - KOKORO_ENDPOINT=http://kokoro:5002 # Kokoro client espera a URL completa
-      - OLLAMA_API_URL=http://ollama:11434 # Ollama client espera a URL completa
-      - NCA_TOOLKIT_KEY=${NCA_TOOLKIT_KEY}
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-      - BASEROW_API_KEY=${BASEROW_API_KEY}
-      - BASEROW_TABLE_ID=${BASEROW_TABLE_ID}
-      - NCA_TOOLKIT_PORT=${NCA_TOOLKIT_PORT:-8088}
-      - TZ=${TZ}
+      TZ: ${TZ:-America/Sao_Paulo}
+      NCA_TOOLKIT_KEY: ${NCA_TOOLKIT_KEY:-default-key}
+      MINIO_ENDPOINT: http://minio:9000
+      BASEROW_ENDPOINT: http://baserow:80
+      KOKORO_ENDPOINT: http://kokoro:5002
+      OLLAMA_API_URL: http://ollama:11434
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-StrongPass@2025}
+      BASEROW_API_KEY: ${BASEROW_API_KEY:-default-api}
+      BASEROW_TABLE_ID: ${BASEROW_TABLE_ID:-1}
     volumes:
       - ./data:/app/data
     depends_on:
-      - minio
-      - baserow
-      - kokoro
-      - ollama
+      baserow:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      kokoro:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      test: ["CMD-SHELL", "curl -fs http://localhost:8088 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
 
   # ==========================================
-  # 🧠 Ollama - Serviço de LLM
+  # 🧠 Ollama - Modelos de linguagem (LLM)
   # ==========================================
   ollama:
     image: ollama/ollama:latest
+    container_name: ambiente-nca_ollama_1
     restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 # ==========================================
 # 💾 Volumes persistentes
@@ -183,12 +198,12 @@ services:
 volumes:
   n8n_data:
   minio_data:
-  baserow_db_data:  # Volume dedicado para o banco de dados do Baserow
-  baserow_app_data: # Volume dedicado para os arquivos da aplicação Baserow
+  baserow_app_data:
+  postgres_data:
   ollama_data:
 
 # ==========================================
-# 🌐 Rede padrão (bridge interna)
+# 🌐 Rede padrão (bridge)
 # ==========================================
 networks:
   default:

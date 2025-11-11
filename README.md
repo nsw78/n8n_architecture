@@ -2,20 +2,20 @@
 # 🚀 Ambiente NCA — Stack de Automação e Inteligência Artificial
 
 O **Ambiente NCA** é uma stack completa de **automação**, **integração de serviços** e **inteligência artificial**, orquestrada com **Docker Compose**.  
-Foi projetada para ser **modular, extensível e independente**, fornecendo uma base sólida para criação de **pipelines inteligentes**, APIs integradas e fluxos de trabalho complexos.
+Foi projetada para ser **modular, extensível e independente**, fornecendo uma base sólida para a criação de **pipelines de conteúdo inteligente**, APIs integradas e fluxos de trabalho complexos. O ecossistema permite a geração automatizada de texto, áudio e vídeo, transformando um simples prompt em um produto multimídia completo.
 
 ---
 
-## 🧩 Visão Geral dos Serviços
+## 🏛️ Arquitetura e Visão Geral dos Serviços
 
-| Serviço | Descrição |
-|----------|------------|
-| **🧠 nCA Toolkit** | API customizada em Flask que integra IA (Ollama), upload de arquivos (MinIO) e logging (Baserow). |
-| **⚙️ n8n** | Plataforma de automação de fluxos (workflow automation) com interface visual para orquestrar APIs e serviços. |
-| **🗄️ MinIO** | Armazenamento de objetos de alta performance, compatível com a API S3 da AWS. |
-| **🧩 Baserow** | Banco de dados no-code de código aberto (alternativa ao Airtable), usado para logs e dados estruturados. |
-| **🔊 Kokoro TTS** | Serviço de Text-to-Speech customizado para conversão de texto em voz. |
-| **🤖 Ollama** | Executor local de modelos de linguagem (LLMs), integrado via API REST. |
+| Serviço | Função na Stack | Descrição Técnica |
+|---|---|---|
+| **⚙️ n8n** | **Orquestrador do Fluxo** | Plataforma de automação visual que inicia e gerencia o pipeline de ponta a ponta. [16, 18, 19] |
+| **🧰 nCA Toolkit** | **Maestro/Integrador Central** | API customizada em Flask que serve como um "garçom": recebe pedidos do n8n e os distribui para os serviços especializados (Ollama, Kokoro, MinIO, Baserow). |
+| **🤖 Ollama** | **Cérebro (Geração de Texto)** | Serviço que executa Modelos de Linguagem Grandes (LLMs) localmente para gerar textos, insights e prompts. [23, 35, 37] |
+| **🔊 Kokoro TTS** | **Voz (Geração de Áudio)** | Converte o texto gerado pelo Ollama em áudio (Text-to-Speech) de alta qualidade. [2, 9, 12] |
+| **🗄️ MinIO** | **Armazém (Storage S3)** | Armazena de forma segura e persistente todos os artefatos gerados (imagens, áudios, vídeos), funcionando como um serviço compatível com a API S3 da AWS. [6, 7, 13] |
+| **🧩 Baserow** | **Catálogo (Banco de Dados)** | Banco de dados No-Code que funciona como um "livro de registros", catalogando todas as URLs e metadados do conteúdo gerado para fácil consulta e gerenciamento. [1, 3, 4] |
 
 ---
 
@@ -100,13 +100,15 @@ docker-compose up -d --build
 
 ## 🧠 Endpoints Principais do nCA Toolkit
 
-| Método          | Endpoint                                            | Descrição |
-| --------------- | --------------------------------------------------- | --------- |
-| `GET /`         | Retorna status e endpoints disponíveis              |           |
-| `GET /health`   | Verificação de saúde (health check)                 |           |
-| `POST /insight` | Envia prompt para o Ollama e retorna resposta da IA |           |
-| `POST /upload`  | Upload de arquivos para o MinIO                     |           |
-| `POST /log`     | Registra logs ou eventos no Baserow                 |           |
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET /` | Retorna status e endpoints disponíveis |
+| `GET /health` | Verificação de saúde (health check) |
+| `POST /insight` | Envia prompt para o Ollama e retorna resposta da IA |
+| `POST /upload` | Upload de arquivos para o MinIO |
+| `POST /log` | Registra logs ou eventos no Baserow |
+| `POST /render` | Gera um vídeo a partir de uma imagem e texto |
+| `GET /data/timeline` | Retorna os dados do arquivo `a_luz_nas_trevas.json` |
 
 ---
 
@@ -157,5 +159,3 @@ Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
 **Nelson dos Santos Walcow**
 Especialista em Cloud, SRE, DevOps e Arquitetura de Infraestrutura
 🌐 [LinkedIn](https://www.linkedin.com) • 🐙 [GitHub](https://github.com/nsw78)
-
-

@@ -25,6 +25,12 @@ WORKDIR /app
 # Cria um usuário não-root para segurança
 RUN useradd --create-home --shell /bin/bash nonroot
 
+# 🔧 Instala curl para o HEALTHCHECK funcionar
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copia dependências de sistema e Python do estágio builder
 COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 COPY --from=builder /usr/bin/ffmpeg /usr/bin/ffmpeg
@@ -39,4 +45,8 @@ RUN if [ ! -f app.py ] && [ ! -f main.py ]; then \
 
 USER nonroot
 EXPOSE 5002
+
+# ✅ Adiciona o healthcheck diretamente aqui (opcional)
+HEALTHCHECK CMD curl -f http://127.0.0.1:5002/health || exit 1
+
 CMD ["sh", "-c", "if [ -f main.py ]; then python main.py; elif [ -f app.py ]; then python app.py; else sleep infinity; fi"]
