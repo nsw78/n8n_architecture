@@ -1,0 +1,80 @@
+# Manipulação de Buckets e Arquivos no MinIO S3
+
+Este guia documenta o processo completo de criação de buckets, envio e download de arquivos utilizando o MinIO S3, integrado ao seu ambiente Docker.
+
+## 1️⃣ Criar um Bucket
+
+Para criar um bucket no MinIO S3, utilize o comando `mb` (make bucket):
+
+```bash
+aws --endpoint-url http://localhost:9005 s3 mb s3://nca-toolkit
+```
+
+* `--endpoint-url http://localhost:9005` aponta para a API S3 do MinIO.
+* `nca-toolkit` é o nome do bucket (use apenas letras minúsculas).
+
+### Verificar se o bucket foi criado
+
+```bash
+aws --endpoint-url http://localhost:9005 s3 ls
+```
+
+Deve aparecer algo assim:
+
+```
+2025-11-11 20:40:43 nca-toolkit
+```
+
+## 2️⃣ Criar um Arquivo Local
+
+Crie um arquivo de teste para enviar ao bucket:
+
+```bash
+echo "Teste de backup" > teste.txt
+```
+
+* Isso cria um arquivo `teste.txt` com o conteúdo "Teste de backup".
+
+## 3️⃣ Enviar Arquivo para o Bucket
+
+Para enviar o arquivo criado para o bucket no MinIO:
+
+```bash
+aws --endpoint-url http://localhost:9005 s3 cp teste.txt s3://nca-toolkit/
+```
+
+* Isso coloca o arquivo `teste.txt` dentro do bucket `nca-toolkit`.
+
+## 4️⃣ Listar Arquivos no Bucket
+
+Para ver quais arquivos existem dentro de um bucket:
+
+```bash
+aws --endpoint-url http://localhost:9005 s3 ls s3://nca-toolkit
+```
+
+Exemplo de saída:
+
+```
+2025-11-11 20:45:00      14 teste.txt
+```
+
+## 5️⃣ Baixar Arquivo do Bucket
+
+Para baixar um arquivo específico do bucket para o seu sistema local:
+
+```bash
+aws --endpoint-url http://localhost:9005 s3 cp s3://nca-toolkit/teste.txt teste_baixado.txt
+```
+
+* Isso cria uma cópia local chamada `teste_baixado.txt` com o mesmo conteúdo do arquivo no bucket.
+
+## ✅ Resumo
+
+1. Criar bucket: `aws s3 mb`
+2. Criar arquivo local: `echo "conteúdo" > arquivo.txt`
+3. Enviar arquivo para bucket: `aws s3 cp arquivo.txt s3://bucket/`
+4. Listar arquivos: `aws s3 ls s3://bucket/`
+5. Baixar arquivo: `aws s3 cp s3://bucket/arquivo.txt arquivo_local.txt`
+
+Este processo garante que você possa manipular arquivos no MinIO S3 de forma segura e integrada ao seu ambiente Docker.

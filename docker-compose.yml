@@ -1,4 +1,3 @@
-
 ###############################
 # REDE PRINCIPAL DO PROJETO
 ###############################
@@ -34,7 +33,6 @@ services:
       POSTGRES_DB: nca_db
     volumes:
       - ambiente-nca_postgres_data:/var/lib/postgresql/data
-    # A porta do Postgres não precisa ser exposta, pois a comunicação é interna na rede Docker.
     networks:
       - nca_network
 
@@ -47,13 +45,13 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-Minio@2025!}
     volumes:
       - ambiente-nca_minio_data:/data
     ports:
-      - "9005:9000"   # API S3 exposta na porta 9005 do host
-      - "9006:9001"   # Console Web exposto na porta 9006 do host
+      - "9005:9000"   # API S3
+      - "9006:9001"   # Console Web
     networks:
       - nca_network
 
@@ -65,17 +63,17 @@ services:
     container_name: ambiente-nca-n8n
     restart: always
     environment:
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=postgres
-      - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=nca_db
-      - DB_POSTGRESDB_USER=nca_user
-      - DB_POSTGRESDB_PASSWORD=nca_pass
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: nca_db
+      DB_POSTGRESDB_USER: nca_user
+      DB_POSTGRESDB_PASSWORD: nca_pass
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
     ports:
-      - "5680:5678" # Mapeia a porta interna 5678 para a porta 5680 do host, evitando conflito.
+      - "5680:5678"
     depends_on:
       - postgres
     networks:
@@ -86,21 +84,19 @@ services:
   #########################################
   nca-toolkit:
     build:
-      context: ./nca-toolkit  # Aponta para a pasta correta
-      dockerfile: Dockerfile      # O nome do arquivo dentro do contexto
+      context: ./nca-toolkit
+      dockerfile: Dockerfile
     container_name: ambiente-nca-nca-toolkit
     restart: always
     environment:
-      # Conexões com os outros serviços
-      - MINIO_ENDPOINT=http://minio:9000
-      - BASEROW_ENDPOINT=http://baserow:80
-      - KOKORO_ENDPOINT=http://kokoro:5002
-      - OLLAMA_API_URL=http://ollama:11434
-      # Chaves e IDs (carregados do .env)
-      - BASEROW_API_KEY=${BASEROW_API_KEY}
-      - BASEROW_TABLE_ID=${BASEROW_TABLE_ID}
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      MINIO_ENDPOINT: http://minio:9000
+      BASEROW_ENDPOINT: http://baserow:80
+      KOKORO_ENDPOINT: http://kokoro:5002
+      OLLAMA_API_URL: http://ollama:11434
+      BASEROW_API_KEY: ${BASEROW_API_KEY}
+      BASEROW_TABLE_ID: ${BASEROW_TABLE_ID}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "8088:8088"
     depends_on:
@@ -120,11 +116,11 @@ services:
     container_name: ambiente-nca-baserow
     restart: always
     environment:
-      - BASEROW_PUBLIC_URL=http://localhost:8081
-      - DATABASE_HOST=postgres
-      - DATABASE_NAME=nca_db
-      - DATABASE_USER=nca_user
-      - DATABASE_PASSWORD=nca_pass
+      BASEROW_PUBLIC_URL: http://localhost:8081
+      DATABASE_HOST: postgres
+      DATABASE_NAME: nca_db
+      DATABASE_USER: nca_user
+      DATABASE_PASSWORD: nca_pass
     ports:
       - "8081:80"
     volumes:
@@ -170,21 +166,11 @@ services:
     image: alpine:latest
     container_name: ambiente-nca-backup
     restart: always
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        while true; do
-          echo "Executando backup dos volumes...";
-          # BACKUP DO POSTGRES
-          tar czf /backup/postgres_backup_$$(date +%F_%H-%M-%S).tar.gz -C /data_postgres .;
-          # BACKUP DO MINIO
-          tar czf /backup/minio_backup_$$(date +%F_%H-%M-%S).tar.gz -C /data_minio .;
-          echo "Backup concluído. Aguardando 24h...";
-          sleep 86400;
-        done
+    command: ["/bin/sh", "/scripts/backup_volumes.sh"]
     volumes:
       - ambiente-nca_postgres_data:/data_postgres:ro
       - ambiente-nca_minio_data:/data_minio:ro
       - ./backup:/backup
+      - ./scripts/backup_volumes.sh:/scripts/backup_volumes.sh:ro
     networks:
       - nca_network
