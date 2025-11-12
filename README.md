@@ -1,9 +1,4 @@
-Perfeito, Nelson.
-Aqui está o **README.md completo, revisado e com o diagrama Mermaid em tema dark**, totalmente compatível com o GitHub e validado linha a linha — basta copiar e colar no seu repositório:
 
----
-
-```markdown
 # Ambiente NCA — Stack de Automação e Inteligência Artificial
 
 O **Ambiente NCA** é uma stack completa e modular para **automação de processos inteligentes**, **integração de IA local**, **armazenamento de ativos multimídia** e **gerenciamento de dados estruturados**.  
@@ -28,25 +23,24 @@ Projetado para uso profissional, o ambiente combina múltiplos serviços orquest
 
 ## 2. Estrutura do Projeto
 
-```
-
+```text
 ambiente-nca/
-├── baserow/                 # Banco de dados visual
-├── data/                    # Arquivos JSON e conteúdos processados
+├── baserow/                      # 🧩 Banco de dados visual (Baserow)
+├── data/                         # 📁 Arquivos JSON e conteúdos processados
 │   └── a_luz_nas_trevas.json
-├── docker-compose.yml       # Orquestração completa da stack
-├── docs/
+├── docker-compose.yml            # 🐳 Orquestração completa da stack
+├── docs/                         # 📚 Documentação do projeto
 │   ├── detail.md
 │   └── workflow-pipeline.md
-├── kokoro/                  # Serviço TTS
+├── kokoro/                       # 🔊 Serviço TTS (Text-to-Speech)
 │   └── Dockerfile
-├── minio/                   # Configuração e volumes do MinIO
-├── n8n/                     # Fluxos de automação
-├── nca-toolkit/             # API Flask central
+├── minio/                        # 📦 Configuração e volumes do MinIO (S3 local)
+├── n8n/                          # 🔁 Fluxos de automação e integração
+├── nca-toolkit/                  # 🛠️ API central em Flask
 │   ├── src/
 │   │   ├── config.py
 │   │   ├── main.py
-│   │   ├── services/
+│   │   ├── services/             # 🔗 Clientes e integrações externas
 │   │   │   ├── ollama_client.py
 │   │   │   ├── baserow_client.py
 │   │   │   ├── minio_client.py
@@ -57,13 +51,13 @@ ambiente-nca/
 │   ├── requirements.txt
 │   └── tests/
 │       └── test_main.py
-├── postgres/                # Volume persistente do PostgreSQL
-├── scripts/
+├── postgres/                     # 🗄️ Volume persistente do PostgreSQL
+├── scripts/                      # ⚙️ Scripts auxiliares e setup inicial
 │   ├── create_baserow_table.py
 │   └── setup.sh
 └── README.md
 
-```
+
 
 ---
 
