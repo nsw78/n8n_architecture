@@ -251,6 +251,4 @@ Consulte o arquivo `LICENSE` para mais informações.
 🔗 [LinkedIn](https://www.linkedin.com/in/nwalcow)  
 💻 [GitHub](https://github.com/nsw78)
 
-🔗 [LinkedIn](https://www.linkedin.com/in/nwalcow)
-💻 [GitHub](https://github.com/nsw78)
 
