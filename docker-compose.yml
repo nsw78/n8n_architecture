@@ -170,6 +170,7 @@ services:
     volumes:
       - ambiente-nca_postgres_data:/data_postgres:ro
       - ambiente-nca_minio_data:/data_minio:ro
+      - ambiente-nca_baserow_data:/data_baserow:ro
       - ./backup:/backup
       - ./scripts/backup_volumes.sh:/scripts/backup_volumes.sh:ro
     networks:
