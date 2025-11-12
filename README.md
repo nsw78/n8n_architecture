@@ -242,7 +242,7 @@ Consulte o arquivo `LICENSE` para mais informações.
 ## 13. ## 🧑‍💻 Autor
 
 **Nelson Walcow**  
-Especialista em **Cloud, SRE, DevOps** e **Arquitetura de Infraestrutura**
+Cloud & DevOps Architect | Machine Learning, LLMs e Inteligência Artificial | Pós-graduado em Data Analytics (FIAP)
 
 🔗 [LinkedIn](https://www.linkedin.com/in/nwalcow)  
 💻 [GitHub](https://github.com/nsw78)
