@@ -239,9 +239,11 @@ Consulte o arquivo `LICENSE` para mais informações.
 
 ---
 
-## 13. Autor
+## 13. ## 🧑‍💻 Autor
 
-**Nelson Walcow**
-Especialista em Cloud, SRE, DevOps e Arquitetura de Infraestrutura
-[LinkedIn](https://www.linkedin.com) • [GitHub](https://github.com/nsw78)
+**Nelson Walcow**  
+Especialista em **Cloud, SRE, DevOps** e **Arquitetura de Infraestrutura**
+
+🔗 [LinkedIn](https://www.linkedin.com/in/nwalcow)  
+💻 [GitHub](https://github.com/nsw78)
 
