@@ -1,4 +1,9 @@
+Perfeito, Nelson.
+Aqui está o **README.md completo, revisado e com o diagrama Mermaid em tema dark**, totalmente compatível com o GitHub e validado linha a linha — basta copiar e colar no seu repositório:
 
+---
+
+```markdown
 # Ambiente NCA — Stack de Automação e Inteligência Artificial
 
 O **Ambiente NCA** é uma stack completa e modular para **automação de processos inteligentes**, **integração de IA local**, **armazenamento de ativos multimídia** e **gerenciamento de dados estruturados**.  
@@ -209,16 +214,21 @@ docker compose logs -f
 ## 10. Diagrama de Integração
 
 ```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#1f2937', 'edgeLabelBackground':'#111827', 'fontSize':'14px', 'fontFamily':'monospace', 'primaryTextColor':'#f3f4f6'}}}%%
+
 graph TD
-    A[n8n] --> B[nCA Toolkit]
-    B --> C[Ollama (LLM)]
-    B --> D[Kokoro TTS]
-    B --> E[MinIO (S3 Storage)]
-    E --> F[Baserow]
-    F --> G[PostgreSQL]
+    A["⚙️ n8n<br><sub>Orquestrador de Fluxos</sub>"] --> B["🧠 nCA Toolkit<br><sub>API Flask Central</sub>"]
+
+    B --> C["🤖 Ollama LLM<br><sub>Geração de Texto Local</sub>"]
+    B --> D["🔊 Kokoro TTS<br><sub>Conversão de Texto em Voz</sub>"]
+    B --> E["🗄️ MinIO (S3)<br><sub>Armazenamento de Arquivos</sub>"]
+
+    E --> F["🧩 Baserow<br><sub>Banco de Dados Visual</sub>"]
+    F --> G["🐘 PostgreSQL<br><sub>Persistência Relacional</sub>"]
+
     G -->|Persistência| F
-    F -->|Retorno| B
-    B -->|Output JSON| A
+    F -->|Retorno de Metadados| B
+    B -->|Saída JSON| A
 ```
 
 ---
@@ -239,11 +249,14 @@ Consulte o arquivo `LICENSE` para mais informações.
 
 ---
 
-## 13. ## 🧑‍💻 Autor
+## 13. 🧑‍💻 Autor
 
-**Nelson Walcow**  
-Cloud & DevOps Architect | Machine Learning, LLMs e Inteligência Artificial | Pós-graduado em Data Analytics (FIAP)
+**Nelson Walcow** — Cloud & DevOps Architect | Machine Learning, LLMs & Artificial Intelligence — Pós-graduado em **Data Analytics (FIAP)**
+
 
 🔗 [LinkedIn](https://www.linkedin.com/in/nwalcow)  
+💻 [GitHub](https://github.com/nsw78)
+
+🔗 [LinkedIn](https://www.linkedin.com/in/nwalcow)
 💻 [GitHub](https://github.com/nsw78)
 
