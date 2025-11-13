@@ -35,6 +35,12 @@ services:
       - ambiente-nca_postgres_data:/var/lib/postgresql/data
     networks:
       - nca_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nca_user -d nca_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   #########################################
   # 2️⃣ MINIO - ARMAZENAMENTO DE OBJETOS (S3)
@@ -75,7 +81,8 @@ services:
     ports:
       - "5680:5678"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - nca_network
 
@@ -100,11 +107,16 @@ services:
     ports:
       - "8088:8088"
     depends_on:
-      - postgres
-      - minio
-      - baserow
-      - ollama
-      - kokoro
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      baserow:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      kokoro:
+        condition: service_started
     networks:
       - nca_network
 
@@ -126,7 +138,8 @@ services:
     volumes:
       - ambiente-nca_baserow_data:/baserow/data
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - nca_network
 
