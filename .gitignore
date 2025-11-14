@@ -63,3 +63,10 @@ env/
 .DS_Store
 Thumbs.db
 *.gz
+
+
+data/
+!data/.gitkeep
+*.gz
+*.tar
+*.tar.gz

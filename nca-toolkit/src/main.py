@@ -28,17 +28,25 @@ def health():
     logging.info("Health check requested.")
     return jsonify({"status": "healthy"}), 200
 
-@app.route('/insight', methods=['POST'])
+@app.route('/insight', methods=['GET', 'POST'])
 def insight():
-    data = request.json
-    if not data or 'input' not in data:
-        logging.warning("Insight request missing 'input' data.")
-        return jsonify({"error": "Missing 'input' in request body"}), 400
+    prompt = None
+    if request.method == 'POST':
+        data = request.json
+        if not data or 'input' not in data:
+            logging.warning("Insight POST request missing 'input' data.")
+            return jsonify({"error": "Missing 'input' in request body"}), 400
+        prompt = data.get('input')
+    else:  # GET request
+        prompt = request.args.get('input')
+        if not prompt:
+            logging.warning("Insight GET request missing 'input' parameter.")
+            return jsonify({"error": "Missing 'input' query parameter"}), 400
+
     try:
         # Inicialização Tardia do Cliente
         ollama_client = OllamaClient(api_url=app.config.get('OLLAMA_API_URL'))
-        
-        response = ollama_client.generate_response(data.get('input'))
+        response = ollama_client.generate_response(prompt)
         logging.info("Insight generated successfully.")
         return jsonify({"response": response}), 200
     except Exception as e:
